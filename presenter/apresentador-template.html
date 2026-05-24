@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Apresentador — __TITLE__</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+<style>
+  *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+  :root{--gold:#C9A227}
+  html,body{height:100%;font-family:'Inter',sans-serif;background:#0a0a0a;color:#fff;overflow:hidden}
+  .wrap{display:grid;grid-template-columns:1fr 1.05fr;grid-template-rows:auto 1fr auto;height:100vh;gap:14px;padding:14px}
+  /* topbar */
+  .topbar{grid-column:1/3;display:flex;align-items:center;justify-content:space-between;background:#141414;border:1px solid #242424;border-radius:10px;padding:10px 18px}
+  .topbar .brand{font-size:12px;font-weight:800;letter-spacing:.18em;color:#888}
+  .clocks{display:flex;align-items:center;gap:22px}
+  .clock{text-align:right}
+  .clock .lbl{font-size:9px;letter-spacing:.14em;text-transform:uppercase;color:#606060;font-weight:700}
+  .clock .val{font-size:26px;font-weight:800;font-variant-numeric:tabular-nums;line-height:1}
+  .clock.timer .val{color:var(--gold)}
+  .tbtn{background:#242424;border:1px solid #404040;color:#ccc;border-radius:7px;padding:7px 12px;font-size:11px;font-weight:700;cursor:pointer;letter-spacing:.05em}
+  .tbtn:hover{background:#333}
+  /* left col: current + next preview */
+  .left{display:flex;flex-direction:column;gap:12px;min-height:0}
+  .frame{position:relative;border:1px solid #242424;border-radius:10px;overflow:hidden;background:#000}
+  .frame.current{flex:1}
+  .frame.next{height:160px;opacity:.85}
+  .frame .tag{position:absolute;top:8px;left:10px;z-index:3;font-size:9px;font-weight:800;letter-spacing:.14em;text-transform:uppercase;color:#888;background:rgba(0,0,0,.6);padding:3px 8px;border-radius:5px}
+  .frame iframe{position:absolute;top:0;left:0;border:0;transform-origin:top left;pointer-events:none}
+  /* right col: script */
+  .right{display:flex;flex-direction:column;min-height:0;background:#141414;border:1px solid #242424;border-radius:10px;overflow:hidden}
+  .right .head{padding:14px 22px;border-bottom:1px solid #242424;display:flex;align-items:baseline;gap:14px;flex-shrink:0}
+  .right .head .num{font-size:13px;font-weight:800;color:var(--gold);letter-spacing:.1em}
+  .right .head .ttl{font-size:18px;font-weight:800}
+  .script{padding:20px 24px;overflow-y:auto;flex:1;font-size:21px;line-height:1.6;font-weight:500;color:#e8e8e8}
+  .script .cue{color:var(--gold);font-weight:700;font-style:italic;font-size:17px;display:block;margin:14px 0;opacity:.85}
+  .script strong{color:#fff;font-weight:800}
+  .script p{margin-bottom:14px}
+  /* footer nav */
+  .nav{grid-column:1/3;display:flex;align-items:center;justify-content:space-between;background:#141414;border:1px solid #242424;border-radius:10px;padding:10px 18px}
+  .nav .dots{display:flex;gap:6px;flex-wrap:wrap;max-width:60%}
+  .dot{width:22px;height:22px;border-radius:5px;background:#242424;color:#888;font-size:10px;font-weight:700;display:flex;align-items:center;justify-content:center;cursor:pointer}
+  .dot.on{background:var(--gold);color:#000}
+  .navbtns{display:flex;gap:10px}
+  .nbtn{background:#242424;border:1px solid #404040;color:#fff;border-radius:8px;padding:10px 22px;font-size:14px;font-weight:800;cursor:pointer}
+  .nbtn:hover{background:var(--gold);color:#000;border-color:var(--gold)}
+  .warn{background:#2a1a00;border:1px solid var(--gold);color:#f0d080;font-size:12px;padding:8px 14px;border-radius:8px;margin:10px 14px;display:none}
+</style>
+</head>
+<body>
+<div class="warn" id="warn">Abra também <strong>__SLIDES_FILE__</strong> na outra tela (tela cheia) para a audiência. Esta janela é só sua.</div>
+<div class="wrap">
+  <div class="topbar">
+    <span class="brand">__TITLE__ · VISTA DO APRESENTADOR</span>
+    <div class="clocks">
+      <div class="clock"><div class="lbl">Hora</div><div class="val" id="clock">--:--</div></div>
+      <div class="clock timer"><div class="lbl">Decorrido</div><div class="val" id="timer">00:00</div></div>
+      <button class="tbtn" id="btnStart">Iniciar</button>
+      <button class="tbtn" id="btnReset">Zerar</button>
+      <button class="tbtn" id="btnOpen">Abrir Slides ↗</button>
+    </div>
+  </div>
+
+  <div class="left">
+    <div class="frame current"><span class="tag">Slide atual</span><iframe id="ifCur" src="__SLIDES_FILE__"></iframe></div>
+    <div class="frame next"><span class="tag">Próximo</span><iframe id="ifNext" src="__SLIDES_FILE__"></iframe></div>
+  </div>
+
+  <div class="right">
+    <div class="head"><span class="num" id="sNum">01 / 14</span><span class="ttl" id="sTitle"></span></div>
+    <div class="script" id="script"></div>
+  </div>
+
+  <div class="nav">
+    <div class="dots" id="dots"></div>
+    <div class="navbtns">
+      <button class="nbtn" id="prev">← Anterior</button>
+      <button class="nbtn" id="next">Próximo →</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const SCRIPTS = __SCRIPTS_ARRAY__;
+
+const TOTAL = SCRIPTS.length;
+let cur = 0;
+const ifCur = document.getElementById('ifCur');
+const ifNext = document.getElementById('ifNext');
+
+function fitFrame(iframe){
+  const f = iframe.parentElement;
+  const w = f.clientWidth, h = f.clientHeight;
+  // slides são 100vw x 100vh; assume viewport base 1280x720 para escala
+  iframe.style.width = '1280px';
+  iframe.style.height = '720px';
+  const scale = Math.min(w/1280, h/720);
+  iframe.style.transform = 'scale(' + scale + ')';
+  iframe.style.left = ((w - 1280*scale)/2) + 'px';
+  iframe.style.top = ((h - 720*scale)/2) + 'px';
+}
+
+function applyToIframe(iframe, n){
+  try{
+    const doc = iframe.contentDocument;
+    if(!doc) return;
+    const sl = doc.querySelectorAll('__SLIDE_SELECTOR__');
+    sl.forEach((s,i)=>s.classList.toggle('active', i===n));
+  }catch(e){}
+}
+
+function render(){
+  const s = SCRIPTS[cur];
+  document.getElementById('sNum').textContent = String(cur+1).padStart(2,'0') + ' / ' + TOTAL;
+  document.getElementById('sTitle').textContent = s.t;
+  document.getElementById('script').innerHTML = s.html;
+  document.getElementById('script').scrollTop = 0;
+  applyToIframe(ifCur, cur);
+  applyToIframe(ifNext, Math.min(cur+1, TOTAL-1));
+  document.querySelectorAll('.dot').forEach((d,i)=>d.classList.toggle('on', i===cur));
+}
+
+function goTo(n, broadcast=true){
+  cur = Math.max(0, Math.min(TOTAL-1, n));
+  render();
+  if(broadcast) localStorage.setItem('presenter_slide', cur + ':' + Date.now());
+}
+
+// dots
+const dotsEl = document.getElementById('dots');
+SCRIPTS.forEach((_,i)=>{
+  const d=document.createElement('div'); d.className='dot'; d.textContent=i+1;
+  d.onclick=()=>goTo(i); dotsEl.appendChild(d);
+});
+
+document.getElementById('next').onclick=()=>goTo(cur+1);
+document.getElementById('prev').onclick=()=>goTo(cur-1);
+
+document.addEventListener('keydown', e=>{
+  if(['ArrowRight','ArrowDown',' ','PageDown'].includes(e.key)){e.preventDefault();goTo(cur+1);}
+  if(['ArrowLeft','ArrowUp','PageUp'].includes(e.key)){e.preventDefault();goTo(cur-1);}
+  if(e.key==='Home')goTo(0);
+  if(e.key==='End')goTo(TOTAL-1);
+});
+
+// sync vindo da janela de slides
+window.addEventListener('storage', e=>{
+  if(e.key==='presenter_slide' && e.newValue){
+    const n=parseInt(e.newValue.split(':')[0],10);
+    if(n!==cur) goTo(n,false);
+  }
+});
+
+// iframes carregaram
+let loaded=0;
+[ifCur,ifNext].forEach(f=>f.addEventListener('load',()=>{
+  fitFrame(f); applyToIframe(f, f===ifCur?cur:Math.min(cur+1,TOTAL-1));
+  loaded++; if(loaded>=2) render();
+}));
+window.addEventListener('resize',()=>{fitFrame(ifCur);fitFrame(ifNext);});
+
+document.getElementById('btnOpen').onclick=()=>window.open('__SLIDES_FILE__','presenterSlides');
+
+// relógio
+function tick(){
+  const now=new Date();
+  document.getElementById('clock').textContent =
+    String(now.getHours()).padStart(2,'0')+':'+String(now.getMinutes()).padStart(2,'0');
+}
+setInterval(tick,1000); tick();
+
+// cronômetro
+let t0=null, tint=null;
+function fmt(ms){const s=Math.floor(ms/1000);return String(Math.floor(s/60)).padStart(2,'0')+':'+String(s%60).padStart(2,'0');}
+document.getElementById('btnStart').onclick=function(){
+  if(tint){clearInterval(tint);tint=null;this.textContent='Iniciar';return;}
+  if(!t0)t0=Date.now();else t0=Date.now()-elapsed;
+  tint=setInterval(()=>{elapsed=Date.now()-t0;document.getElementById('timer').textContent=fmt(elapsed);},250);
+  this.textContent='Pausar';
+};
+let elapsed=0;
+document.getElementById('btnReset').onclick=()=>{
+  if(tint){clearInterval(tint);tint=null;}
+  t0=null;elapsed=0;document.getElementById('timer').textContent='00:00';
+  document.getElementById('btnStart').textContent='Iniciar';
+};
+
+// aviso some após 8s
+setTimeout(()=>{const w=document.getElementById('warn');if(w)w.style.display='none';},8000);
+document.getElementById('warn').style.display='block';
+
+goTo(0,false);
+</script>
+</body>
+</html>
