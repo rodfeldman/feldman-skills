@@ -25,5 +25,6 @@ Se você não quer clonar o repositório inteiro, use [DownGit](https://downgit.
 
 ## Contato
 
-- Site: [Academia Lendár[IA]](https://academialendaria.ai)
-- GitHub: [@rodfeldman](https://github.com/rodfeldman)
+- 🔗 Bio pessoal: https://bio-links-feldman.vercel.app/
+- 🌟 Comunidade Lendária: https://go.hotmart.com/H105885499L?ap=c199
+- 💻 GitHub: [@rodfeldman](https://github.com/rodfeldman)
